@@ -24,7 +24,7 @@ fun(b,c,d) = @tensor a[i,k] := b[i,j] * c[j,k] * d[l,l]  # define a function
     return (fwd, back)
 end
 
-A = fun(B,C,D)                                           # apply this to B, C
+A = fun(B,C,D)                                           # apply this to B, C, D
 ```
 You may also write `@grad B C @tensor A[i,k] := B[i,j] * C[j,k] * D[l,l]` to specify that
 only sensitivities for `B` and `C` are needed, this will remove the calculation 
@@ -43,7 +43,7 @@ of `Δd` above.
 I can solve 1. For 2, it can equally well call `@einsum` or `@ein` I think. 
 But 3 seems hard to solve with this design.
 
-My earlier attempt [TensorTrack.jl](https://github.com/mcabbott/TensorGrad.jl) worked at the level of 
+My earlier attempt [TensorTrack.jl](https://github.com/mcabbott/TensorTrack.jl) worked at the level of 
 functions `contract!` etc, and thus gets some re-use, 4. 
 However with Zygote it doesn't know what sensitivities are needed, and thus computes far too many. 
 (With [Tracker.jl](https://github.com/FluxML/Tracker.jl), it could calculate `Δc` only 
