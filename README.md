@@ -4,7 +4,7 @@
 
 This package adds gradient definitions for [Zygote.jl](https://github.com/FluxML/Zygote.jl) 
 to calculations using [TensorOperations.jl](https://github.com/Jutho/TensorOperations.jl).
-It provides a macro `@grad` which rewrites an expression like
+It exports a macro `@grad` which rewrites an expression like
 ```julia
 @grad @tensor A[i,k] := B[i,j] * C[j,k] * D[l,l]
 ```
@@ -30,6 +30,11 @@ You may also write `@grad B C @tensor A[i,k] := B[i,j] * C[j,k] * D[l,l]` to spe
 only sensitivities for `B` and `C` are needed, this will remove the calculation 
 of `Δd` above. 
 
+If [Tracker.jl](https://github.com/FluxML/Tracker.jl) is loaded, then it will now
+define the same gradients for `B::TrackedArray` etc. 
+
+Note that this is a fairly crude experiment, probably not something to rely on.
+
 ### Limitations:
 
 1. The expression must be one term, and scalar factors are not handled yet.
@@ -40,17 +45,16 @@ of `Δd` above.
   (like `b[i,j] * c[j,k]` above, done twice).
 4. Requires you to add `@grad` everywhere, so won't work in other people's code.
 
-I can solve 1. For 2, it can equally well call `@einsum` or `@ein` I think. 
-But 3 seems hard to solve with this design.
+I can solve 1. But 3 seems hard to solve with this design.
 
-My earlier attempt [TensorTrack.jl](https://github.com/mcabbott/TensorTrack.jl) worked at the level of 
+For 2, it can equally well be taught to call another macro like `@einsum`, I think. 
+Or `@ein` from [OMEinsum.jl](https://github.com/under-Peter/OMEinsum.jl),
+which may be pointless as that has its own gradients built-in. 
+Probably you should use that instead! 
+
+An earlier attempt is now [TensorTrack.jl](https://github.com/mcabbott/TensorTrack.jl), which works at the level of 
 functions `contract!` etc, and thus gets some re-use, 4. 
-However with Zygote it doesn't know what sensitivities are needed, and thus computes far too many. 
-(With [Tracker.jl](https://github.com/FluxML/Tracker.jl), it could calculate `Δc` only 
-when `c::TrackedArray`.) 
 But is completely limited by 2, being deeply plugged into TensorOperations.
-
-Another approach is being developed in [OMEinsum.jl](https://github.com/under-Peter/OMEinsum.jl). 
 
 Note also that [TensorCast.jl](https://github.com/mcabbott/TensorCast.jl) should be almost 
 fully differentiable, possibly with [SliceMap.jl](https://github.com/mcabbott/SliceMap.jl). 

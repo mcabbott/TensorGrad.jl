@@ -9,7 +9,7 @@ const VERBOSE = false
 """
     @grad @tensor A[i,j,k] := B[i,...] * C[...] * D...
 
-Macro which provides gradient definitions for Zygote.jl
+Macro which provides gradient definitions for Zygote.jl & Tracker.jl,
 for the given tensor contraction handled by TensorOperations.jl.
 
 By default gradients are defined for all tensors on the right,
@@ -88,7 +88,7 @@ function _grad(exs...; mod=Main)
     backtuple = [ B in backseen ? Symbol("_Δ_", B) : nothing for B in inputs ]
 
     @gensym fun fwd back
-    defn = quote
+    zygote_defn = quote
         $fun($(inputs...)) = $ex
 
         Zygote.@adjoint function $fun($(inputs...))
@@ -105,12 +105,42 @@ function _grad(exs...; mod=Main)
     # Zygote.@adjoint seems to need to be at top level, but this means
     # you can't @macroexpand1 to see...
     # Better just define forward() yourself? But what's Context()?
+    # There may be scope issues with where fun() is defined now.
     if VERBOSE
-        defn_ = MacroTools.alias_gensyms(MacroTools.striplines(defn))
+        defn_ = MacroTools.alias_gensyms(MacroTools.striplines(zygote_defn))
         @show defn_
     end
-    @eval mod $defn
-    # This may also cause scope issues with where fun() is defined
+
+    # Now define the same steps for tracker?
+    # Would be better to check if any are tracked, not just the first input
+    # Likewise needs to be at top level, it says.
+    primeinputs = map(B -> Symbol("_",B,"′_"), inputs)
+    tracker_defn = quote
+        $fun($(inputs[1])::Tracker.TrackedArray, $(inputs[2:end]...)) = Tracker.track($fun, $(inputs...))
+
+        Tracker.@grad function $fun($(primeinputs...))
+            ($(inputs...),) = Tracker.data.(($(primeinputs...),))
+            $fwd = $ex
+            function $back(_Δ)
+                $(backsteps...)
+                return ($(backtuple...),)
+            end
+            return $fwd, $back
+        end
+    end
+
+    fun_defn = :( $fun($(inputs...)) = $ex )
+
+    @eval mod $fun_defn
+
+    if isdefined(mod, :Zygote)
+        @eval mod $zygote_defn
+    end
+
+    if isdefined(mod, :Tracker)
+        @eval mod $tracker_defn
+    end
+
     return esc(:( $A = $fun($(inputs...)) ))
 end
 
