@@ -30,6 +30,9 @@ You may also write `@grad B C @tensor A[i,k] := B[i,j] * C[j,k] * D[l,l]` to spe
 only sensitivities for `B` and `C` are needed, this will remove the calculation 
 of `Δd` above. 
 
+To see what is being defined, call `TensorGrad.verbose(true)` before the macro 
+(rather than using `@macroexpand1`).
+
 If [Tracker.jl](https://github.com/FluxML/Tracker.jl) is loaded, then it will now
 define the same gradients for `B::TrackedArray` etc. 
 

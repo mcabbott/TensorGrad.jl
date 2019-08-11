@@ -4,8 +4,6 @@ export @grad
 
 using MacroTools, LinearAlgebra
 
-const VERBOSE = false
-
 """
     @grad @tensor A[i,j,k] := B[i,...] * C[...] * D...
 
@@ -25,6 +23,18 @@ Not working yet:
 """
 macro grad(exs...)
     _grad(exs...; mod=__module__)
+end
+
+const VERBOSE = Ref(false)
+"""
+    TensorGrad.verbose(true)
+
+Turns on printing of `Zygote.@adjoint` definition.
+"""
+function verbose(x::Bool)
+    VERBOSE[] = x
+    @show TensorGrad.VERBOSE[]
+    nothing
 end
 
 function _grad(exs...; mod=Main)
@@ -74,8 +84,8 @@ function _grad(exs...; mod=Main)
         else
             # create = :( $deltaB = similar($B) )
             tup123 = Tuple(1:length(ijk))
-            symB = gensym(string('Δ', B, '_', join(ijk)))
-            create = :( $deltaB = TensorOperations.cached_similar_from_indices(:B, eltype($B), $tup123, (), $B, :N) )
+            symB = QuoteNode(gensym(string("_Δ_", B, '_', join(ijk), '_')))
+            create = :( $deltaB = TensorOperations.cached_similar_from_indices($symB, eltype($B), $tup123, (), $B, :N) )
             infill = :( @tensor $deltaB[$(ijk...)] = $newright )
             append!(backsteps, Any[create, infill])
             push!(backseen, B)
@@ -109,7 +119,7 @@ function _grad(exs...; mod=Main)
     # you can't @macroexpand1 to see...
     # Better just define forward() yourself? But what's Context()?
     # There may be scope issues with where fun() is defined now.
-    if VERBOSE
+    if VERBOSE[]
         defn_ = MacroTools.alias_gensyms(MacroTools.striplines(zygote_defn))
         @show defn_
     end
