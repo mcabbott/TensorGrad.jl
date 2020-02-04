@@ -11,10 +11,11 @@ MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 julia = "1"
 
 [extras]
+Einsum = "b7d42ee7-0b51-5a75-98ca-779d3107e4c0"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "ForwardDiff", "TensorOperations", "Zygote"]
+test = ["Test", "Einsum", "ForwardDiff", "TensorOperations", "Zygote"]

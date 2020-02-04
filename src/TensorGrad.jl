@@ -9,17 +9,18 @@ using MacroTools, LinearAlgebra
 
 Macro which provides gradient definitions for Zygote.jl & Tracker.jl,
 for the given tensor contraction handled by TensorOperations.jl.
+Also works with `@einsum` & `@einsimd` from Einsum.jl.
 
 By default gradients are defined for all tensors on the right,
 but writing for instance `@grad B D @tensor A[...] ...` will treat `C` as a constant.
 
 * Mutation with `@tensor A[...] = ...` rather than `:=` is not supported.
 * Applying the macro to a block of code `@tensor begin A[] := ... end` is also not supported.
+* Operations which are not contractions, like @einsum A[] := log(B[] * C[])`, are not allowed.
 
 Not working yet:
 * Constants like `a * B[i,j,...]`
 * Multiple terms `B[...] * C[...] + D[...] * E[...]`
-* Other macros like `@einsum A[i,j] := ...`
 """
 macro grad(exs...)
     _grad(exs...; mod=__module__)
@@ -39,7 +40,10 @@ end
 
 function _grad(exs...; mod=Main)
     ex = exs[end]
-    @capture(ex, @tensor left_ := right_) || error("don't understand input, expected @tensor A[...] := B[...] * ...")
+    @capture(ex, @einsum_ left_ := right_) ||
+    # @capture(ex, @tensor left_ := right_) ||
+        # @capture(ex, @einsum left_ := right_) || @capture(ex, @einsimd left_ := right_) ||
+        error("don't understand input, expected @tensor A[...] := B[...] * ...")
     @capture(left, A_[leftind__]) || error("don't understand LHS, expected A[i,j,...], got $left")
     if length(exs) == 1
         gradlist = nothing
@@ -79,14 +83,21 @@ function _grad(exs...; mod=Main)
         append!(backsteps, extra)
 
         if B in backseen
-            addon = :( @tensor $deltaB[$(ijk...)] = $deltaB[$(ijk...)] + $newright )
+            # addon = :( @tensor $deltaB[$(ijk...)] = $deltaB[$(ijk...)] + $newright )
+            addon_ = :( $deltaB[$(ijk...)] = $deltaB[$(ijk...)] + $newright )
+            addon = Expr(:macrocall, einsum, LineNumberNode(@__LINE__, @__FILE__), addon_)
             push!(backsteps, addon)
         else
-            # create = :( $deltaB = similar($B) )
-            tup123 = Tuple(1:length(ijk))
-            symB = QuoteNode(gensym(string("_Δ_", B, '_', join(ijk), '_')))
-            create = :( $deltaB = TensorOperations.cached_similar_from_indices($symB, eltype($B), $tup123, (), $B, :N) )
-            infill = :( @tensor $deltaB[$(ijk...)] = $newright )
+            if isdefined(mod, :TensorOperations)
+                tup123 = Tuple(1:length(ijk))
+                symB = QuoteNode(gensym(string("_Δ_", B, '_', join(ijk), '_')))
+                create = :( $deltaB = TensorOperations.cached_similar_from_indices($symB, eltype($B), $tup123, (), $B, :N) )
+            else
+                create = :( $deltaB = similar($B) )
+            end
+            # infill = :( @tensor $deltaB[$(ijk...)] = $newright )
+            infill_ = :( $deltaB[$(ijk...)] = $newright )
+            infill = Expr(:macrocall, einsum, LineNumberNode(@__LINE__, @__FILE__), infill_)
             append!(backsteps, Any[create, infill])
             push!(backseen, B)
         end

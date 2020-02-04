@@ -1,5 +1,5 @@
 using Test
-using TensorGrad, TensorOperations, LinearAlgebra, ForwardDiff, Zygote
+using TensorGrad, TensorOperations, Einsum, LinearAlgebra, ForwardDiff, Zygote
 Zygote.refresh()
 
 @testset "simple" begin
@@ -36,6 +36,49 @@ Zygote.refresh()
     @test f5(m2)[] ≈ 3 * sum(abs2, m2)
 
     # g5 = Zygote.gradient(x -> sum(sin, f5(x)), m2) # error @tensor _Δ_x[i, k] = 3 * _Δ[] * _Δ[]
+
+end
+
+@testset "einsum" begin
+
+    # Same as above
+    m1 = rand(2,3)
+    m2 = rand(3,4)
+    f1(x,y) = @grad @einsum z[i,k] := x[i,j] * y[j,k]
+    @test f1(m1, m2) ≈ m1 * m2
+
+    g1 = Zygote.gradient((x,y) -> sum(sin, f1(x,y)), m1, m2)
+    @test g1[1] ≈ ForwardDiff.gradient(x -> sum(sin, f1(x,m2)), m1)
+    @test g1[2] ≈ ForwardDiff.gradient(y -> sum(sin, f1(m1,y)), m2)
+
+    # batch matmul
+    t1 = rand(2,2,2);
+    t2 = rand(2,2,2);
+    f10(x,y) = @grad @einsum z[i,k,b] := x[i,j,b] * y[j,k,b]
+    t3 = similar(t1);
+    for b=1:2
+        t3[:,:,b] .= t1[:,:,b] * t2[:,:,b]
+    end
+    @test t3 ≈ f10(t1, t2)
+
+    g10 = Zygote.gradient((x,y) -> sum(sin, f10(x,y)), t1, t2)
+    @test g10[1] ≈ ForwardDiff.gradient(x -> sum(sin, f10(x,t2)), t1)
+    @test g10[2] ≈ ForwardDiff.gradient(y -> sum(sin, f10(t1,y)), t2)
+
+    f11(x,y) = @grad @einsum z[i,b,k] := x[i,b,j] * y[k,b,j]
+    g11 = Zygote.gradient((x,y) -> sum(sin, f11(x,y)), t1, t2)
+    @test g11[1] ≈ ForwardDiff.gradient(x -> sum(sin, f11(x,t2)), t1)
+    @test g11[2] ≈ ForwardDiff.gradient(y -> sum(sin, f11(t1,y)), t2)
+
+end
+
+@testset "errors" begin
+
+    # multiple terms
+    @test_throws Exception TensorGrad._grad(:( @tensor S[i,j] := 2 * x[i,j] + 3 * r32[j,i] ))
+
+    # not a contraction
+    # @test_throws Exception TensorGrad._grad(:( @einsum A[i,j] := exp(B[i,j]) ))
 
 end
 
