@@ -3,7 +3,8 @@
 [![Build Status](https://travis-ci.org/mcabbott/TensorGrad.jl.svg?branch=master)](https://travis-ci.org/mcabbott/TensorGrad.jl)
 
 This package adds gradient definitions for [Zygote.jl](https://github.com/FluxML/Zygote.jl) 
-to calculations using [TensorOperations.jl](https://github.com/Jutho/TensorOperations.jl).
+to most calculations using [TensorOperations.jl](https://github.com/Jutho/TensorOperations.jl),
+and some using [Einsum.jl](https://github.com/ahwillia/Einsum.jl).
 It exports a macro `@grad` which rewrites an expression like
 ```julia
 @grad @tensor A[i,k] := B[i,j] * C[j,k] * D[l,l]
@@ -41,17 +42,19 @@ Note that this is a fairly crude experiment, probably not something to rely on.
 ### Limitations:
 
 1. The expression must be one term, and scalar factors are not handled yet.
-2. Since all the work is done by TensorOperations.jl, it cannot handle more general contractions
-  such as `A[i,k] * B[j,k] * C[l,k]`. 
-3. It makes no attempt to cache intermediate contractions for re-use, 
+2. It makes no attempt to cache intermediate contractions for re-use, 
   and thus if there are many tensors it will do the same work several times
   (like `b[i,j] * c[j,k]` above, done twice).
-4. Requires you to add `@grad` everywhere, so won't work in other people's code.
+3. Requires you to add `@grad` everywhere, so won't work in other people's code.
 
-I can solve 1. But 3 seems hard to solve with this design.
+I can solve 1. But 2 seems hard to solve with this design.
 
-For 2, it can equally well be taught to call another macro like `@einsum`, I think. 
-Or `@ein` from [OMEinsum.jl](https://github.com/under-Peter/OMEinsum.jl),
+It now understands other macros like `@einsum` which share the same syntax. 
+This allows it to treat non-Einstein contractions, such as batched matrix multiplication:
+```julia
+@grad x @einsum z[i,k,b] := x[i,j,b] * y[j,k,b]
+```
+Those are also handled by `@ein` from [OMEinsum.jl](https://github.com/under-Peter/OMEinsum.jl),
 which may be pointless as that has its own gradients built-in. 
 Probably you should use that instead! 
 
@@ -59,8 +62,7 @@ An earlier attempt is now [TensorTrack.jl](https://github.com/mcabbott/TensorTra
 functions `contract!` etc, and thus gets some re-use, 4. 
 But is completely limited by 2, being deeply plugged into TensorOperations.
 
-Note also that [TensorCast.jl](https://github.com/mcabbott/TensorCast.jl) should be almost 
-fully differentiable, possibly with [SliceMap.jl](https://github.com/mcabbott/SliceMap.jl). 
-It's a terrible way to do contractions but good for other things. 
+Finally, note also that [TensorCast.jl](https://github.com/mcabbott/TensorCast.jl) should 
+be almost fully differentiable (although focused on operations other than contractions).
 
 --- Michael Abbott, August 2019
