@@ -66,3 +66,9 @@ Finally, note also that [TensorCast.jl](https://github.com/mcabbott/TensorCast.j
 be almost fully differentiable (although focused on operations other than contractions).
 
 --- Michael Abbott, August 2019
+
+### Update:
+
+Essentially the same code has been bolted onto [Tullio.jl](https://github.com/mcabbott/Tullio.jl) 
+in [PR#6](https://github.com/mcabbott/Tullio.jl/pull/6). It has the same limitations as above.
+(But it avoids `eval` by attaching gradients to a callable struct `Eval` always, not to the newly defined functions.)
