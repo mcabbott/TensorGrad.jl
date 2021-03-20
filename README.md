@@ -70,5 +70,8 @@ be almost fully differentiable (although focused on operations other than contra
 ### Update:
 
 Essentially the same code has been bolted onto [Tullio.jl](https://github.com/mcabbott/Tullio.jl) 
-in [PR#6](https://github.com/mcabbott/Tullio.jl/pull/6). It has the same limitations as above.
+originally in [PR#6](https://github.com/mcabbott/Tullio.jl/pull/6), and moved to `@tensor` in [PR#92](https://github.com/mcabbott/Tullio.jl/pull/92). It has the same limitations as above.
 (But it avoids `eval` by attaching gradients to a callable struct `Eval` always, not to the newly defined functions.)
+
+The package [TensorRules.jl](https://github.com/ho-oto/TensorRules.jl) has a macro `@∇` which performs
+manipulations of `@tensor` expressions, acting on whole functions containing them.
